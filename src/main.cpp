@@ -11,7 +11,7 @@
 
 // --- Configuration ---
 #define DEBOUNCE_MS        50
-#define PAIRING_HOLD_MS    10000  // 10 seconds hold for pairing mode
+#define PAIRING_HOLD_MS    15000  // 15 seconds hold for pairing mode
 #define RECONNECT_DELAY_MS 5000   // Wait before restarting BLE after disconnect
 #define MULTI_PRESS_MS     400    // Max time between presses for multi-press detection
 #define LONG_PRESS_MS      2000   // Long press threshold for Button 3
@@ -134,7 +134,7 @@ void setup() {
   Serial.println("Starting BLE Keyboard...");
   bleKeyboard.begin();
   Serial.println("BLE Keyboard started. Waiting for connection...");
-  Serial.println("Hold Button 3 for 10s to enter pairing mode.");
+  Serial.printf("Hold Button 3 for %d seconds to enter pairing mode.\n", PAIRING_HOLD_MS / 1000);
   Serial.println();
 }
 
