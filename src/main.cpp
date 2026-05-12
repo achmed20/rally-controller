@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <BleKeyboard.h>
+#include <BleGamepad.h>
 
 // --- Pin Definitions ---
 // All pins support internal pull-ups. Buttons connect pin to GND.
@@ -16,19 +16,21 @@
 #define MULTI_PRESS_MS     400    // Max time between presses for multi-press detection
 #define LONG_PRESS_MS      2000   // Long press threshold for Button 3
 
-// --- Key Mappings ---
-// Change these to remap buttons to different keys
-#define KEY_MAP_FORWARD       KEY_RIGHT_ARROW
-#define KEY_MAP_BACKWARDS     KEY_LEFT_ARROW
-#define KEY_MAP_BUTTON1       KEY_RETURN
-#define KEY_MAP_BUTTON2       KEY_ESC
-#define KEY_MAP_BUTTON3_1X    KEY_F5       // Single press
-#define KEY_MAP_BUTTON3_2X    KEY_F6       // Double press
-#define KEY_MAP_BUTTON3_3X    KEY_F7       // Triple press
-#define KEY_MAP_BUTTON3_LONG  KEY_MEDIA_WWW_HOME  // Android Home (AC Home consumer key)
+// --- Gamepad Button Mappings ---
+// Change these to remap buttons to different gamepad buttons (1-indexed)
+#define GAMEPAD_BTN_BUTTON1       BUTTON_1   // A
+#define GAMEPAD_BTN_BUTTON2       BUTTON_2   // B
+#define GAMEPAD_BTN_BUTTON3_1X    BUTTON_3   // X  (single press)
+#define GAMEPAD_BTN_BUTTON3_2X    BUTTON_4   // Y  (double press)
+#define GAMEPAD_BTN_BUTTON3_3X    BUTTON_5   // LB (triple press)
+#define GAMEPAD_BTN_BUTTON3_LONG  BUTTON_6   // RB (long press)
 
-// --- BLE Keyboard ---
-BleKeyboard bleKeyboard("Rally Remote", "DIY Rally Controller", 100);
+// Hat switch directions for Forward/Backwards
+#define HAT_FORWARD   HAT_RIGHT
+#define HAT_BACKWARDS HAT_LEFT
+
+// --- BLE Gamepad ---
+BleGamepad bleGamepad("Rally Remote", "DIY Rally Controller", 100);
 
 // --- Button State ---
 struct Button {
@@ -82,29 +84,14 @@ void updateButton(Button &btn) {
 
 void enterPairingMode() {
   Serial.println("Entering pairing mode...");
-  // Stop the current BLE keyboard and restart to allow new pairings
-  bleKeyboard.end();
+  bleGamepad.end();
   delay(500);
-  bleKeyboard.begin();
+  BleGamepadConfiguration config;
+  config.setButtonCount(6);
+  config.setHatSwitchCount(1);
+  config.setAutoReport(false);
+  bleGamepad.begin(&config);
   Serial.println("Pairing mode active. Device is discoverable.");
-}
-
-void pressKey(uint8_t key) {
-  if (bleKeyboard.isConnected()) {
-    bleKeyboard.press(key);
-  }
-}
-
-void releaseKey(uint8_t key) {
-  if (bleKeyboard.isConnected()) {
-    bleKeyboard.release(key);
-  }
-}
-
-void sendMediaKey(const MediaKeyReport key) {
-  if (bleKeyboard.isConnected()) {
-    bleKeyboard.write(key);
-  }
 }
 
 void setup() {
@@ -112,8 +99,8 @@ void setup() {
   delay(1000);  // Wait for serial monitor to connect
 
   Serial.println("================================");
-  Serial.println("  Rally Controller v1.0");
-  Serial.println("  BLE HID Keyboard Device");
+  Serial.println("  Rally Controller v2.0");
+  Serial.println("  BLE HID Gamepad Device");
   Serial.println("================================");
   Serial.println();
   Serial.println("Pin configuration (all INPUT_PULLUP, buttons to GND):");
@@ -131,9 +118,13 @@ void setup() {
   pinMode(PIN_BUTTON2,   INPUT_PULLUP);
   pinMode(PIN_BUTTON3,   INPUT_PULLUP);
 
-  Serial.println("Starting BLE Keyboard...");
-  bleKeyboard.begin();
-  Serial.println("BLE Keyboard started. Waiting for connection...");
+  Serial.println("Starting BLE Gamepad...");
+  BleGamepadConfiguration config;
+  config.setButtonCount(6);
+  config.setHatSwitchCount(1);
+  config.setAutoReport(false);
+  bleGamepad.begin(&config);
+  Serial.println("BLE Gamepad started. Waiting for connection...");
   Serial.printf("Hold Button 3 for %d seconds to enter pairing mode.\n", PAIRING_HOLD_MS / 1000);
   Serial.println();
 }
@@ -159,7 +150,7 @@ void loop() {
   static bool wasConnected = false;
   static unsigned long disconnectTime = 0;
   static bool reconnecting = false;
-  bool isConnected = bleKeyboard.isConnected();
+  bool isConnected = bleGamepad.isConnected();
 
   if (isConnected && !wasConnected) {
     Serial.println("[BLE] Device connected!");
@@ -174,9 +165,13 @@ void loop() {
   if (!isConnected && !reconnecting && wasConnected == false && disconnectTime > 0) {
     if (millis() - disconnectTime >= RECONNECT_DELAY_MS) {
       Serial.println("[BLE] Restarting BLE to re-advertise...");
-      bleKeyboard.end();
+      bleGamepad.end();
       delay(500);
-      bleKeyboard.begin();
+      BleGamepadConfiguration config;
+      config.setButtonCount(6);
+      config.setHatSwitchCount(1);
+      config.setAutoReport(false);
+      bleGamepad.begin(&config);
       Serial.println("[BLE] BLE restarted. Waiting for connection...");
       reconnecting = true;
       disconnectTime = 0;
@@ -185,54 +180,70 @@ void loop() {
 
   wasConnected = isConnected;
 
-  // --- Handle key presses (only when connected) ---
+  // --- Handle button presses (only when connected) ---
   if (isConnected) {
-    // Forward button
+    bool reportNeeded = false;
+
+    // Forward button -> Hat switch right
     static bool fwdHeld = false;
     if (buttons[BTN_IDX_FORWARD].pressed && !fwdHeld) {
       Serial.println("[BTN] Forward pressed");
-      pressKey(KEY_MAP_FORWARD);
+      bleGamepad.setHat1(HAT_FORWARD);
       fwdHeld = true;
+      reportNeeded = true;
     } else if (!buttons[BTN_IDX_FORWARD].pressed && fwdHeld) {
       Serial.println("[BTN] Forward released");
-      releaseKey(KEY_MAP_FORWARD);
+      // Only release hat if backwards isn't held
+      if (!buttons[BTN_IDX_BACKWARDS].pressed) {
+        bleGamepad.setHat1(HAT_CENTERED);
+      }
       fwdHeld = false;
+      reportNeeded = true;
     }
 
-    // Backwards button
+    // Backwards button -> Hat switch left
     static bool bwdHeld = false;
     if (buttons[BTN_IDX_BACKWARDS].pressed && !bwdHeld) {
       Serial.println("[BTN] Backwards pressed");
-      pressKey(KEY_MAP_BACKWARDS);
+      bleGamepad.setHat1(HAT_BACKWARDS);
       bwdHeld = true;
+      reportNeeded = true;
     } else if (!buttons[BTN_IDX_BACKWARDS].pressed && bwdHeld) {
       Serial.println("[BTN] Backwards released");
-      releaseKey(KEY_MAP_BACKWARDS);
+      // Only release hat if forward isn't held
+      if (!buttons[BTN_IDX_FORWARD].pressed) {
+        bleGamepad.setHat1(HAT_CENTERED);
+      }
       bwdHeld = false;
+      reportNeeded = true;
     }
 
     // Button 1
     static bool btn1Held = false;
     if (buttons[BTN_IDX_BUTTON1].pressed && !btn1Held) {
       Serial.println("[BTN] Button 1 pressed");
-      pressKey(KEY_MAP_BUTTON1);
+      bleGamepad.press(GAMEPAD_BTN_BUTTON1);
       btn1Held = true;
+      reportNeeded = true;
     } else if (!buttons[BTN_IDX_BUTTON1].pressed && btn1Held) {
       Serial.println("[BTN] Button 1 released");
-      releaseKey(KEY_MAP_BUTTON1);
+      bleGamepad.release(GAMEPAD_BTN_BUTTON1);
       btn1Held = false;
+      reportNeeded = true;
     }
 
     // Button 2
     static bool btn2Held = false;
     if (buttons[BTN_IDX_BUTTON2].pressed && !btn2Held) {
       Serial.println("[BTN] Button 2 pressed");
-      pressKey(KEY_MAP_BUTTON2);
+      bleGamepad.press(GAMEPAD_BTN_BUTTON2);
       btn2Held = true;
+      reportNeeded = true;
     } else if (!buttons[BTN_IDX_BUTTON2].pressed && btn2Held) {
       Serial.println("[BTN] Button 2 released");
-      releaseKey(KEY_MAP_BUTTON2);
+      bleGamepad.release(GAMEPAD_BTN_BUTTON2);
       btn2Held = false;
+      reportNeeded = true;
     }
 
     // Button 3 - multi-press (only if pairing not triggered)
@@ -251,12 +262,16 @@ void loop() {
       btn3WasPressed = false;
     }
 
-    // Long press detection (3 seconds)
+    // Long press detection
     if (buttons[BTN_IDX_BUTTON3].pressed && btn3WasPressed && !btn3LongPressSent && !pairingTriggered) {
       unsigned long holdTime = millis() - buttons[BTN_IDX_BUTTON3].pressStartTime;
       if (holdTime >= LONG_PRESS_MS) {
-        Serial.println("[BTN] Button 3 long press -> Android Home");
-        sendMediaKey(KEY_MAP_BUTTON3_LONG);
+        Serial.println("[BTN] Button 3 long press -> Gamepad Button 6");
+        bleGamepad.press(GAMEPAD_BTN_BUTTON3_LONG);
+        bleGamepad.sendReport();
+        delay(50);
+        bleGamepad.release(GAMEPAD_BTN_BUTTON3_LONG);
+        bleGamepad.sendReport();
         btn3LongPressSent = true;
         btn3TapCount = 0;  // Cancel multi-tap
       }
@@ -265,19 +280,27 @@ void loop() {
     // Fire multi-tap action after window expires (only if no long press)
     if (btn3TapCount > 0 && !btn3WasPressed && !btn3LongPressSent &&
         (millis() - btn3LastTapTime) >= MULTI_PRESS_MS) {
-      uint8_t key;
+      uint8_t btn;
       switch (btn3TapCount) {
-        case 1:  key = KEY_MAP_BUTTON3_1X; break;
-        case 2:  key = KEY_MAP_BUTTON3_2X; break;
-        default: key = KEY_MAP_BUTTON3_3X; break;
+        case 1:  btn = GAMEPAD_BTN_BUTTON3_1X; break;
+        case 2:  btn = GAMEPAD_BTN_BUTTON3_2X; break;
+        default: btn = GAMEPAD_BTN_BUTTON3_3X; break;
       }
-      Serial.printf("[BTN] Button 3 %dx -> key 0x%02X\n", btn3TapCount, key);
-      bleKeyboard.write(key);
+      Serial.printf("[BTN] Button 3 %dx -> Gamepad Button %d\n", btn3TapCount, btn);
+      bleGamepad.press(btn);
+      bleGamepad.sendReport();
+      delay(50);
+      bleGamepad.release(btn);
+      reportNeeded = true;
       btn3TapCount = 0;
     }
+
+    if (reportNeeded) {
+      bleGamepad.sendReport();
+    }
   } else {
-    // Release all keys if we lose connection
-    bleKeyboard.releaseAll();
+    // Release all buttons if we lose connection
+    bleGamepad.resetButtons();
   }
 
   // Yield more time to BLE stack when not connected
