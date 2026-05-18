@@ -28,6 +28,7 @@ It appears to the host device as **"Rally Remote"** and simulates a standard gam
 ## 3D Printed Parts
 
 STL files and the full 3MF project are in the [`3d models/`](3d%20models/) folder.
+Use something Weather and heat proof like ASA or PETG
 
 | File | Description |
 |------|-------------|
@@ -44,15 +45,15 @@ STL files and the full 3MF project are in the [`3d models/`](3d%20models/) folde
 2. Install the buttons and tighten with their included nuts. Start with the top button, then the 2-way rocker, then the remaining buttons. Orient the terminals toward the outer walls to make soldering easier.
 3. Use loctite or superglue to lock the nuts in place.
 4. Strip a short piece of wire and solder a GND backbone — one terminal of each button connected to ground. This minimises the amount of individual wires you need.
-5. Feed the 6-core cable through the housing and solder the remaining signal wires.
-6. Secure the cable inside the case with a zip tie looped around the 6-core cable so it can't be pulled through.
+5. Feed the 6-core cable through the housing and solder the remaining signal wires. If the whole is to tight, use a drill to extend the hole.
+6. Secure the cable inside the case with a zip tie looped around the 6-core cable so it can't be pulled through easily.
 7. Fit the backplate and secure with 4× M3×6mm screws.
 
 ---
 
 ## Pin Layout
 
-All pins use the ESP32's internal pull-ups. Buttons connect the pin to GND when pressed.
+All pins use the ESP32's internal pull-ups. Buttons connect the pin to GND when pressed. Solder them accordingly. Rmember to solder the bacbone (the stripped wire) to GND and not to 3.3V.
 
 | GPIO | Function |
 |------|----------|
@@ -62,7 +63,8 @@ All pins use the ESP32's internal pull-ups. Buttons connect the pin to GND when 
 | 33 | Button 2 |
 | 27 | Button 3 (multi-press) |
 
-To use a different ESP32 board, change the `#define PIN_*` values at the top of [`src/main.cpp`](src/main.cpp).
+To use Pins, change the `#define PIN_*` values at the top of [`src/main.cpp`](src/main.cpp) but make sure they support internal pullups.
+
 
 ---
 
