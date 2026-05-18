@@ -4,9 +4,11 @@ A DIY BLE gamepad controller for the DMD2 tablet, designed to mount on a 22mm ha
 
 It appears to the host device as **"Rally Remote"** and simulates a standard gamepad over Bluetooth LE.
 
-![Rally Controller](images/image2.png)
-![Rally Controller object](images/image1.png)
-![Rally Controller mounted](images/image.png)
+![Rally Controller](images/complete.png)
+![Rally Controller object](images/render.png)
+![Rally Controller mounted](images/mounted.png)
+![Rally Controller soldered](images/solder.png)
+
 
 ---
 
