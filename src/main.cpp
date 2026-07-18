@@ -3,11 +3,11 @@
 
 // --- Pin Definitions ---
 // All pins support internal pull-ups. Buttons connect pin to GND.
-#define PIN_FORWARD   25
-#define PIN_BACKWARDS 26
-#define PIN_BUTTON1   32
-#define PIN_BUTTON2   33
-#define PIN_BUTTON3   27
+#define PIN_FORWARD   4
+#define PIN_BACKWARDS 5
+#define PIN_BUTTON1   2
+#define PIN_BUTTON2   3
+#define PIN_BUTTON3   6
 
 // --- Configuration ---
 #define DEBOUNCE_MS        50
@@ -15,6 +15,7 @@
 #define RECONNECT_DELAY_MS 5000   // Wait before restarting BLE after disconnect
 #define MULTI_PRESS_MS     400    // Max time between presses for multi-press detection
 #define LONG_PRESS_MS      2000   // Long press threshold for Button 3
+#define BUTTON3_MULTIPRESS 0          // 1 = multi/long press detection, 0 = simple button
 
 // --- Gamepad Button Mappings ---
 // Change these to remap buttons to different gamepad buttons (1-indexed)
@@ -246,6 +247,7 @@ void loop() {
       reportNeeded = true;
     }
 
+#if BUTTON3_MULTIPRESS
     // Button 3 - multi-press (only if pairing not triggered)
     static uint8_t btn3TapCount = 0;
     static unsigned long btn3LastTapTime = 0;
@@ -294,6 +296,21 @@ void loop() {
       reportNeeded = true;
       btn3TapCount = 0;
     }
+#else
+    // Button 3 - simple press
+    static bool btn3Held = false;
+    if (buttons[BTN_IDX_BUTTON3].pressed && !btn3Held && !pairingTriggered) {
+      Serial.println("[BTN] Button 3 pressed");
+      bleGamepad.press(GAMEPAD_BTN_BUTTON3_1X);
+      btn3Held = true;
+      reportNeeded = true;
+    } else if (!buttons[BTN_IDX_BUTTON3].pressed && btn3Held) {
+      Serial.println("[BTN] Button 3 released");
+      bleGamepad.release(GAMEPAD_BTN_BUTTON3_1X);
+      btn3Held = false;
+      reportNeeded = true;
+    }
+#endif
 
     if (reportNeeded) {
       bleGamepad.sendReport();
