@@ -3,8 +3,8 @@
 
 // --- Pin Definitions ---
 // All pins support internal pull-ups. Buttons connect pin to GND.
-#define PIN_FORWARD   4
-#define PIN_BACKWARDS 5
+#define PIN_FORWARD   5
+#define PIN_BACKWARDS 4
 #define PIN_BUTTON1   2
 #define PIN_BUTTON2   3
 #define PIN_BUTTON3   6
